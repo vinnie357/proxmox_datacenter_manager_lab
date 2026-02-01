@@ -12,3 +12,6 @@ Thumbs.db
 
 # mise local config
 .mise.local.toml
+
+# Environment secrets
+.env

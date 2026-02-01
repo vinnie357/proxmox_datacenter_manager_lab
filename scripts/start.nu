@@ -37,12 +37,30 @@ def main [] {
     print "Starting PVE-3..."
     start_pve "pve-3" $pve_image 8008 2224 $dns_domain
 
+    # Set passwords if ROOT_PASSWORD is configured
+    let root_password = ($env.ROOT_PASSWORD? | default "")
+    if ($root_password | is-not-empty) {
+        print ""
+        print "Setting root passwords..."
+        set_password "pdm" $root_password
+        set_password "pve-1" $root_password
+        set_password "pve-2" $root_password
+        set_password "pve-3" $root_password
+    }
+
     print ""
     print "Waiting for services to initialize..."
-    sleep 15sec
+    sleep 10sec
 
     # Show status
     nu $"($project_root)/scripts/urls.nu"
+}
+
+def set_password [name: string, password: string] {
+    try {
+        ^container exec $name bash -c $"echo 'root:($password)' | chpasswd" out+err> /dev/null
+        print $"  ($name) password set"
+    } catch { }
 }
 
 def get_dns_domain [] {

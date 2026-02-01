@@ -2,6 +2,7 @@
 # Uses Apple Container on macOS 26+ (Tahoe)
 
 [env]
+_.file = ".env"
 PROJECT_ROOT = "{{ config_root }}"
 PDM_IMAGE = "ghcr.io/longqt-sea/proxmox-datacenter-manager"
 PVE_IMAGE = "ghcr.io/longqt-sea/proxmox-ve"
@@ -50,6 +51,14 @@ run = "container exec -it pdm /bin/bash"
 [tasks."shell:pve1"]
 description = "Open shell in PVE-1 container"
 run = "container exec -it pve-1 /bin/bash"
+
+[tasks."shell:pve2"]
+description = "Open shell in PVE-2 container"
+run = "container exec -it pve-2 /bin/bash"
+
+[tasks."shell:pve3"]
+description = "Open shell in PVE-3 container"
+run = "container exec -it pve-3 /bin/bash"
 
 [tasks.inspect]
 description = "Inspect PDM storage paths"
