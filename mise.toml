@@ -40,6 +40,14 @@ run = "container logs pdm"
 description = "Show PVE-1 logs"
 run = "container logs pve-1"
 
+[tasks.passwd]
+description = "Set root passwords on running containers"
+run = "nu scripts/passwd.nu"
+
+[tasks.remotes]
+description = "Configure PVE nodes as remotes in PDM"
+run = "nu scripts/remotes.nu"
+
 [tasks.backup]
 description = "Backup PDM config and data"
 run = "nu scripts/backup.nu"

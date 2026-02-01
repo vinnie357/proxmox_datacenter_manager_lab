@@ -1,7 +1,12 @@
 #!/usr/bin/env nu
 
 # Start the Proxmox lab using Apple Container
-# Note: Volume mounts are NOT used because they overwrite container defaults.
+#
+# PVE containers require:
+# - Service masking for Rosetta 2 compatibility (same as PDM image)
+# - 4GB RAM minimum for pveproxy to start without OOM
+#
+# Volume mounts are NOT used because they overwrite container defaults.
 # Use `mise backup` to export data from running containers.
 
 def main [] {
@@ -50,9 +55,14 @@ def main [] {
 
     print ""
     print "Waiting for services to initialize..."
-    sleep 10sec
+    sleep 30sec
+
+    # Configure remotes
+    print ""
+    nu $"($project_root)/scripts/remotes.nu"
 
     # Show status
+    print ""
     nu $"($project_root)/scripts/urls.nu"
 }
 
@@ -83,7 +93,7 @@ def is_running [name: string] {
 
 def remove_if_exists [name: string] {
     try {
-        ^container rm $name out+err> /dev/null
+        ^container rm -f $name out+err> /dev/null
     } catch { }
 }
 
@@ -93,7 +103,8 @@ def start_pdm [image: string, dns_domain: string] {
         return
     }
 
-    remove_if_exists "pdm"
+    # Force remove any stopped/failed container
+    try { ^container rm -f pdm out+err> /dev/null } catch { }
 
     try {
         if ($dns_domain | is-not-empty) {
@@ -104,7 +115,7 @@ def start_pdm [image: string, dns_domain: string] {
                 --virtualization
                 --dns-domain $dns_domain
                 -p 8443:8443
-                $image)
+                $image out+err> /dev/null)
         } else {
             (^container run -d
                 --name pdm
@@ -112,7 +123,7 @@ def start_pdm [image: string, dns_domain: string] {
                 --rosetta
                 --virtualization
                 -p 8443:8443
-                $image)
+                $image out+err> /dev/null)
         }
         print "  pdm started"
     } catch { |e|
@@ -128,6 +139,13 @@ def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_do
 
     remove_if_exists $name
 
+    # PVE requires service masking for Rosetta 2 compatibility and more memory
+    # Services that fail under Rosetta are masked before starting systemd
+    let init_script = "
+systemctl mask proc-sys-fs-binfmt_misc.automount sys-kernel-config.mount sys-kernel-debug.mount sys-kernel-tracing.mount kmod.service systemd-modules-load.service systemd-udevd.service 2>/dev/null
+exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
+"
+
     try {
         if ($dns_domain | is-not-empty) {
             (^container run -d
@@ -135,19 +153,25 @@ def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_do
                 --platform linux/amd64
                 --rosetta
                 --virtualization
+                --memory 4g
                 --dns-domain $dns_domain
                 -p $"($web_port):8006"
                 -p $"($ssh_port):22"
-                $image)
+                --entrypoint /bin/bash
+                $image
+                -c $init_script out+err> /dev/null)
         } else {
             (^container run -d
                 --name $name
                 --platform linux/amd64
                 --rosetta
                 --virtualization
+                --memory 4g
                 -p $"($web_port):8006"
                 -p $"($ssh_port):22"
-                $image)
+                --entrypoint /bin/bash
+                $image
+                -c $init_script out+err> /dev/null)
         }
         print $"  ($name) started"
     } catch { |e|
