@@ -1,10 +1,13 @@
 # Proxmox Datacenter Manager Lab
 
-Run Proxmox Datacenter Manager (PDM) and Proxmox VE nodes in containers for home lab testing.
+Run Proxmox Datacenter Manager (PDM), Proxmox VE nodes, and Proxmox Backup Server (PBS) in containers for home lab testing.
 
 ## Quick Start (macOS 26+)
 
 ```bash
+# Set your root password
+echo 'ROOT_PASSWORD=yourpassword' > .env
+
 # Start the lab
 mise start
 
@@ -22,9 +25,9 @@ Run `mise urls` to see access URLs and container status.
 
 If a DNS domain is configured (`container system dns ls`), containers are also accessible via hostnames like `pdm.test.local`.
 
-Shell access: `mise shell` (PDM) or `mise shell:pve1` (PVE-1)
+Shell access: `mise shell` (PDM), `mise shell:pve1` (PVE-1), `mise shell:pbs` (PBS)
 
-Default credentials: `root` / `root`
+Credentials are set from `ROOT_PASSWORD` in `.env` file. Run `mise urls` to see login details.
 
 ## Requirements
 
@@ -49,28 +52,40 @@ docker compose up -d
 
 | Command | Description |
 |---------|-------------|
-| `mise start` | Start PDM + 3 PVE nodes |
+| `mise start` | Start PDM + 3 PVE nodes + PBS, set passwords, configure remotes |
 | `mise stop` | Stop all containers |
 | `mise status` | Show container status |
-| `mise urls` | Show access URLs |
+| `mise urls` | Show access URLs and credentials |
+| `mise remotes:status` | Show PDM remote connection status |
+| `mise passwd` | Set root passwords on running containers |
+| `mise remotes` | Configure PVE/PBS nodes as remotes in PDM |
 | `mise backup` | Backup PDM data |
 | `mise clean` | Remove all containers |
+| `mise clean:data` | Reset all persistent data |
 | `mise shell` | Shell into PDM |
+| `mise shell:pbs` | Shell into PBS |
 
 ## Project Structure
 
 ```
+├── .env                 # ROOT_PASSWORD and other settings
 ├── docker-compose.yml   # For Docker (Linux/Windows)
 ├── mise.toml            # Task definitions
-├── data/                # All persistent data (gitignored)
-│   ├── backups/         # PDM backups
-│   ├── ISOs/            # ISO storage for PVE
-│   ├── pdm-config/      # PDM configuration
-│   ├── pdm-data/        # PDM database
-│   └── VM-Backup/       # VM backups
 ├── scripts/             # Nushell automation scripts
-└── templates/           # Reference commands
+├── templates/           # Reference commands
+└── data/                # Persistent data (gitignored)
+    ├── pdm-config/      # PDM configuration
+    ├── pdm-data/        # PDM database
+    ├── backups/         # mise backup output
+    ├── iso/             # ISO images (shared by all PVE nodes)
+    ├── pve-{1,2,3}/dump # Per-node VM backups
+    ├── pbs-config/      # PBS configuration
+    ├── pbs-lib/         # PBS metadata
+    ├── pbs-logs/        # PBS logs
+    └── pbs-backups/     # PBS backup storage
 ```
+
+Data persists in the `data/` directory across container restarts. Use `mise clean:data` to reset all persistent data.
 
 ## How It Works
 
@@ -85,11 +100,21 @@ Uses three key flags:
 
 Standard docker-compose with privileged containers and cgroup mounts.
 
-## Connecting PDM to PVE Nodes
+## Connecting PDM to PVE/PBS Nodes
 
-1. Open PDM at https://localhost:8443
-2. Add remotes using container IPs (visible in `mise status`)
-3. Or use hostnames if on same Docker network
+Remotes are configured automatically during `mise start`. To check status:
+
+```bash
+mise remotes:status
+```
+
+To reconfigure manually:
+
+```bash
+mise remotes
+```
+
+See `AGENTS.md` for manual configuration steps if auto-config fails.
 
 ## Backup & Restore
 

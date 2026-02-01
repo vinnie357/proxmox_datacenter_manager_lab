@@ -13,9 +13,15 @@ def main [] {
     let dirs = [
         "data/pdm-config"
         "data/pdm-data"
-        "data/VM-Backup"
-        "data/ISOs"
         "data/backups"
+        "data/iso"
+        "data/pve-1/dump"
+        "data/pve-2/dump"
+        "data/pve-3/dump"
+        "data/pbs-config"
+        "data/pbs-lib"
+        "data/pbs-logs"
+        "data/pbs-backups"
     ]
 
     for dir in $dirs {

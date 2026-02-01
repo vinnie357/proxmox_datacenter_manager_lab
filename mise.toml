@@ -30,8 +30,8 @@ depends = ["stop"]
 run = "nu scripts/start.nu"
 
 [tasks.status]
-description = "Show container status"
-run = "container list"
+description = "Show container and PDM status"
+run = "nu scripts/status.nu"
 
 [tasks.logs]
 description = "Show PDM logs"
@@ -88,3 +88,7 @@ run = "nu scripts/urls.nu"
 [tasks.clean]
 description = "Stop and remove all containers"
 run = "nu scripts/clean.nu"
+
+[tasks."clean:data"]
+description = "Remove all persistent data (requires confirmation)"
+run = "nu scripts/clean-data.nu"

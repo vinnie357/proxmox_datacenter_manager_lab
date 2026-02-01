@@ -6,8 +6,8 @@
 # - Service masking for Rosetta 2 compatibility (same as PDM image)
 # - 4GB RAM minimum for pveproxy to start without OOM
 #
-# Volume mounts are NOT used because they overwrite container defaults.
-# Use `mise backup` to export data from running containers.
+# Volume mounts persist data across container restarts.
+# Use `mise clean:data` to reset all persistent data.
 
 def main [] {
     let project_root = ($env.PROJECT_ROOT? | default (pwd))
@@ -31,21 +31,21 @@ def main [] {
 
     # Start PDM
     print "Starting PDM..."
-    start_pdm $pdm_image $dns_domain
+    start_pdm $pdm_image $dns_domain $project_root
 
     # Start PVE nodes
     print "Starting PVE-1..."
-    start_pve "pve-1" $pve_image 8006 2222 $dns_domain
+    start_pve "pve-1" $pve_image 8006 2222 $dns_domain $project_root
 
     print "Starting PVE-2..."
-    start_pve "pve-2" $pve_image 8007 2223 $dns_domain
+    start_pve "pve-2" $pve_image 8007 2223 $dns_domain $project_root
 
     print "Starting PVE-3..."
-    start_pve "pve-3" $pve_image 8008 2224 $dns_domain
+    start_pve "pve-3" $pve_image 8008 2224 $dns_domain $project_root
 
     # Start PBS
     print "Starting PBS..."
-    start_pbs $pbs_image $dns_domain
+    start_pbs $pbs_image $dns_domain $project_root
 
     # Set passwords if ROOT_PASSWORD is configured
     let root_password = ($env.ROOT_PASSWORD? | default "")
@@ -115,7 +115,7 @@ def remove_if_exists [name: string] {
     } catch { }
 }
 
-def start_pdm [image: string, dns_domain: string] {
+def start_pdm [image: string, dns_domain: string, project_root: string] {
     if (is_running "pdm") {
         print "  pdm already running"
         return
@@ -132,6 +132,8 @@ def start_pdm [image: string, dns_domain: string] {
                 --rosetta
                 --virtualization
                 --dns-domain $dns_domain
+                -v $"($project_root)/data/pdm-config:/etc/proxmox-datacenter-manager"
+                -v $"($project_root)/data/pdm-data:/var/lib/proxmox-datacenter-manager"
                 -p 8443:8443
                 $image out+err> /dev/null)
         } else {
@@ -140,6 +142,8 @@ def start_pdm [image: string, dns_domain: string] {
                 --platform linux/amd64
                 --rosetta
                 --virtualization
+                -v $"($project_root)/data/pdm-config:/etc/proxmox-datacenter-manager"
+                -v $"($project_root)/data/pdm-data:/var/lib/proxmox-datacenter-manager"
                 -p 8443:8443
                 $image out+err> /dev/null)
         }
@@ -149,7 +153,7 @@ def start_pdm [image: string, dns_domain: string] {
     }
 }
 
-def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_domain: string] {
+def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_domain: string, project_root: string] {
     if (is_running $name) {
         print $"  ($name) already running"
         return
@@ -173,6 +177,8 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
                 --virtualization
                 --memory 4g
                 --dns-domain $dns_domain
+                -v $"($project_root)/data/($name)/dump:/var/lib/vz/dump"
+                -v $"($project_root)/data/iso:/var/lib/vz/template/iso"
                 -p $"($web_port):8006"
                 -p $"($ssh_port):22"
                 --entrypoint /bin/bash
@@ -185,6 +191,8 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
                 --rosetta
                 --virtualization
                 --memory 4g
+                -v $"($project_root)/data/($name)/dump:/var/lib/vz/dump"
+                -v $"($project_root)/data/iso:/var/lib/vz/template/iso"
                 -p $"($web_port):8006"
                 -p $"($ssh_port):22"
                 --entrypoint /bin/bash
@@ -197,7 +205,7 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
     }
 }
 
-def start_pbs [image: string, dns_domain: string] {
+def start_pbs [image: string, dns_domain: string, project_root: string] {
     if (is_running "pbs") {
         print "  pbs already running"
         return
@@ -217,6 +225,10 @@ def start_pbs [image: string, dns_domain: string] {
                 --virtualization
                 --memory 2g
                 --dns-domain $dns_domain
+                -v $"($project_root)/data/pbs-config:/etc/proxmox-backup"
+                -v $"($project_root)/data/pbs-lib:/var/lib/proxmox-backup"
+                -v $"($project_root)/data/pbs-logs:/var/log/proxmox-backup"
+                -v $"($project_root)/data/pbs-backups:/backups"
                 -p 8009:8007
                 --entrypoint /bin/bash
                 $image
@@ -228,6 +240,10 @@ def start_pbs [image: string, dns_domain: string] {
                 --rosetta
                 --virtualization
                 --memory 2g
+                -v $"($project_root)/data/pbs-config:/etc/proxmox-backup"
+                -v $"($project_root)/data/pbs-lib:/var/lib/proxmox-backup"
+                -v $"($project_root)/data/pbs-logs:/var/log/proxmox-backup"
+                -v $"($project_root)/data/pbs-backups:/backups"
                 -p 8009:8007
                 --entrypoint /bin/bash
                 $image
