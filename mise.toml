@@ -6,6 +6,7 @@ _.file = ".env"
 PROJECT_ROOT = "{{ config_root }}"
 PDM_IMAGE = "ghcr.io/longqt-sea/proxmox-datacenter-manager"
 PVE_IMAGE = "ghcr.io/longqt-sea/proxmox-ve"
+PBS_IMAGE = "ayufan/proxmox-backup-server"
 
 # ============================================================================
 # Tasks - Apple Container (macOS 26+)
@@ -48,6 +49,10 @@ run = "nu scripts/passwd.nu"
 description = "Configure PVE nodes as remotes in PDM"
 run = "nu scripts/remotes.nu"
 
+[tasks."remotes:status"]
+description = "Show PDM remotes and their connection status"
+run = "nu scripts/remotes-status.nu"
+
 [tasks.backup]
 description = "Backup PDM config and data"
 run = "nu scripts/backup.nu"
@@ -67,6 +72,10 @@ run = "container exec -it pve-2 /bin/bash"
 [tasks."shell:pve3"]
 description = "Open shell in PVE-3 container"
 run = "container exec -it pve-3 /bin/bash"
+
+[tasks."shell:pbs"]
+description = "Open shell in PBS container"
+run = "container exec -it pbs /bin/bash"
 
 [tasks.inspect]
 description = "Inspect PDM storage paths"

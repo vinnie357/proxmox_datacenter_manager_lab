@@ -13,6 +13,7 @@ def main [] {
     let project_root = ($env.PROJECT_ROOT? | default (pwd))
     let pdm_image = ($env.PDM_IMAGE? | default "ghcr.io/longqt-sea/proxmox-datacenter-manager")
     let pve_image = ($env.PVE_IMAGE? | default "ghcr.io/longqt-sea/proxmox-ve")
+    let pbs_image = ($env.PBS_IMAGE? | default "ayufan/proxmox-backup-server")
 
     # Ensure container system is running
     try {
@@ -42,6 +43,10 @@ def main [] {
     print "Starting PVE-3..."
     start_pve "pve-3" $pve_image 8008 2224 $dns_domain
 
+    # Start PBS
+    print "Starting PBS..."
+    start_pbs $pbs_image $dns_domain
+
     # Set passwords if ROOT_PASSWORD is configured
     let root_password = ($env.ROOT_PASSWORD? | default "")
     if ($root_password | is-not-empty) {
@@ -51,6 +56,7 @@ def main [] {
         set_password "pve-1" $root_password
         set_password "pve-2" $root_password
         set_password "pve-3" $root_password
+        set_pbs_password "pbs" $root_password
     }
 
     print ""
@@ -69,6 +75,18 @@ def main [] {
 def set_password [name: string, password: string] {
     try {
         ^container exec $name bash -c $"echo 'root:($password)' | chpasswd" out+err> /dev/null
+        print $"  ($name) password set"
+    } catch { }
+}
+
+def set_pbs_password [name: string, password: string] {
+    try {
+        # PBS uses admin@pbs user with SHA-512 password hash in shadow.json
+        # File must be owned by backup:backup with proper permissions
+        let hash = (^openssl passwd -5 $password | str trim)
+        ^container exec $name bash -c $"echo '{
+  \"admin\": \"($hash)\"
+}' > /etc/proxmox-backup/shadow.json && chown backup:backup /etc/proxmox-backup/shadow.json && chmod 600 /etc/proxmox-backup/shadow.json" out+err> /dev/null
         print $"  ($name) password set"
     } catch { }
 }
@@ -174,6 +192,48 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
                 -c $init_script out+err> /dev/null)
         }
         print $"  ($name) started"
+    } catch { |e|
+        print $"  ERROR: ($e)"
+    }
+}
+
+def start_pbs [image: string, dns_domain: string] {
+    if (is_running "pbs") {
+        print "  pbs already running"
+        return
+    }
+
+    remove_if_exists "pbs"
+
+    # PBS requires tmpfs at /run for its shmem
+    let init_script = "mount -t tmpfs tmpfs /run && /usr/bin/runsvdir /runit"
+
+    try {
+        if ($dns_domain | is-not-empty) {
+            (^container run -d
+                --name pbs
+                --platform linux/amd64
+                --rosetta
+                --virtualization
+                --memory 2g
+                --dns-domain $dns_domain
+                -p 8009:8007
+                --entrypoint /bin/bash
+                $image
+                -c $init_script out+err> /dev/null)
+        } else {
+            (^container run -d
+                --name pbs
+                --platform linux/amd64
+                --rosetta
+                --virtualization
+                --memory 2g
+                -p 8009:8007
+                --entrypoint /bin/bash
+                $image
+                -c $init_script out+err> /dev/null)
+        }
+        print "  pbs started"
     } catch { |e|
         print $"  ERROR: ($e)"
     }

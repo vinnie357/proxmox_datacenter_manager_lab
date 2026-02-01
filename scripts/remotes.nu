@@ -33,6 +33,10 @@ def main [] {
         configure_remote $node $root_password $pdm_auth
     }
 
+    # Configure PBS
+    print "Configuring pbs..."
+    configure_pbs_remote "pbs" $root_password $pdm_auth
+
     print ""
     print "Done. Check PDM UI for configured remotes."
 }
@@ -202,5 +206,127 @@ def configure_remote [node: string, password: string, pdm_auth: record] {
 
     # Add to PDM
     let result = (add_pdm_remote $pdm_auth $node $ip $token_id $token_secret $fingerprint)
+    print $"  PDM response: ($result)"
+}
+
+def get_pbs_auth [ip: string, password: string] {
+    try {
+        # PBS uses admin@pbs user
+        let response = (^curl -sk -X POST $"https://($ip):8007/api2/json/access/ticket"
+            -d $"username=admin@pbs&password=($password)")
+
+        let data = ($response | from json | get data)
+        let ticket = $data.ticket
+        let csrf = $data.CSRFPreventionToken
+
+        {cookie: $"PBSAuthCookie=($ticket)", csrf: $csrf, ticket: $ticket}
+    } catch {
+        {}
+    }
+}
+
+def create_pbs_token [ip: string, pbs_auth: record, token_id: string] {
+    try {
+        # Delete existing token if any
+        ^curl -sk -X DELETE $"https://($ip):8007/api2/json/access/users/admin@pbs/token/($token_id)" -H $"Cookie: ($pbs_auth.cookie)" -H $"CSRFPreventionToken: ($pbs_auth.csrf)" out+err> /dev/null
+
+        # Create API token on PBS
+        let response = (^curl -sk -X POST $"https://($ip):8007/api2/json/access/users/admin@pbs/token/($token_id)"
+            -H $"Cookie: ($pbs_auth.cookie)"
+            -H $"CSRFPreventionToken: ($pbs_auth.csrf)")
+
+        let data = ($response | from json)
+        if ($data.data? | is-not-empty) {
+            # Add ACL for token - PBS tokens need explicit permissions
+            let token_authid = $"admin%40pbs%21($token_id)"
+            ^curl -sk -X PUT $"https://($ip):8007/api2/json/access/acl" -H $"Cookie: ($pbs_auth.cookie)" -H $"CSRFPreventionToken: ($pbs_auth.csrf)" -d "path=/" -d "role=Admin" -d $"auth-id=($token_authid)" -d "propagate=1" out+err> /dev/null
+
+            $data.data.value
+        } else {
+            ""
+        }
+    } catch {
+        ""
+    }
+}
+
+def get_pbs_fingerprint [ip: string] {
+    try {
+        let output = (echo "" | ^openssl s_client -connect $"($ip):8007" err> /dev/null | ^openssl x509 -noout -fingerprint -sha256)
+        $output | str replace "sha256 Fingerprint=" "" | str trim
+    } catch {
+        ""
+    }
+}
+
+def add_pdm_pbs_remote [pdm_auth: record, remote_id: string, ip: string, token_id: string, token_secret: string, fingerprint: string] {
+    try {
+        # URL-encode the authid: @ -> %40, ! -> %21
+        let authid = $"admin%40pbs%21($token_id)"
+        let nodes = $"($ip):8007,fingerprint=($fingerprint)"
+
+        let response = (^curl -sk -X POST "https://localhost:8443/api2/json/remotes/remote"
+            -H $"Cookie: ($pdm_auth.cookie)"
+            -H $"CSRFPreventionToken: ($pdm_auth.csrf)"
+            -d $"id=($remote_id)"
+            -d "type=pbs"
+            -d $"authid=($authid)"
+            -d $"token=($token_secret)"
+            -d $"nodes=($nodes)")
+
+        $response
+    } catch { |e|
+        $"Error: ($e)"
+    }
+}
+
+def configure_pbs_remote [node: string, password: string, pdm_auth: record] {
+    # Check if PBS is running
+    if not (is_running $node) {
+        print $"  ($node) not running, skipped"
+        return
+    }
+
+    # Get node IP
+    let ip = (get_container_ip $node)
+    if ($ip | is-empty) {
+        print $"  ($node) could not get IP, skipped"
+        return
+    }
+    print $"  IP: ($ip)"
+
+    # Check if already configured
+    if (check_remote_exists $pdm_auth $node) {
+        print $"  ($node) already configured in PDM"
+        return
+    }
+
+    # Authenticate with PBS
+    let pbs_auth = (get_pbs_auth $ip $password)
+    if ($pbs_auth | is-empty) {
+        print $"  ($node) failed to authenticate with PBS"
+        return
+    }
+    print $"  Authenticated with PBS"
+
+    # Create API token
+    let token_id = "pdm"
+    let token_secret = (create_pbs_token $ip $pbs_auth $token_id)
+    if ($token_secret | is-empty) {
+        print $"  ($node) failed to create API token - may already exist"
+        return
+    }
+    print $"  Created API token"
+
+    # Get certificate fingerprint
+    let fingerprint = (get_pbs_fingerprint $ip)
+    if ($fingerprint | is-empty) {
+        print $"  ($node) could not get certificate fingerprint"
+        return
+    }
+    print $"  Got fingerprint"
+
+    # Add to PDM
+    let result = (add_pdm_pbs_remote $pdm_auth $node $ip $token_id $token_secret $fingerprint)
     print $"  PDM response: ($result)"
 }

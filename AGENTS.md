@@ -23,6 +23,9 @@ mise passwd
 
 # Configure PVE nodes as remotes in PDM
 mise remotes
+
+# Show remote connection status
+mise remotes:status
 ```
 
 ## Shell Access
@@ -32,6 +35,7 @@ mise shell        # PDM container
 mise shell:pve1   # PVE-1 container
 mise shell:pve2   # PVE-2 container
 mise shell:pve3   # PVE-3 container
+mise shell:pbs    # PBS container
 ```
 
 ## Testing Loop

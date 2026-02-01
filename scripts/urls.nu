@@ -34,8 +34,9 @@ def main [] {
     print "  PVE-1: https://localhost:8006"
     print "  PVE-2: https://localhost:8007"
     print "  PVE-3: https://localhost:8008"
+    print "  PBS:   https://localhost:8009"
     print ""
-    print "Shell access: mise shell (PDM), mise shell:pve1, etc."
+    print "Shell access: mise shell (PDM), mise shell:pve1, mise shell:pbs, etc."
 
     if ($dns_domain | is-not-empty) {
         print ""
@@ -45,10 +46,13 @@ def main [] {
         print $"  PVE-1: https://pve-1.($dns_domain):8006"
         print $"  PVE-2: https://pve-2.($dns_domain):8007"
         print $"  PVE-3: https://pve-3.($dns_domain):8008"
+        print $"  PBS:   https://pbs.($dns_domain):8009"
     }
 
     print ""
-    print "Default credentials: root / root"
+    print "Default credentials:"
+    print "  PDM/PVE: root / root"
+    print "  PBS:     admin@pbs / root"
     print ""
 
     print "Container Status:"
