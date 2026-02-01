@@ -1,0 +1,14 @@
+# Proxmox Lab - Git Ignore
+
+# All mounted data
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# mise local config
+.mise.local.toml
