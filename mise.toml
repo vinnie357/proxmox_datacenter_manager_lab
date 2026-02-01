@@ -1,0 +1,64 @@
+# Proxmox Datacenter Manager Lab
+# Uses Apple Container on macOS 26+ (Tahoe)
+
+[env]
+PROJECT_ROOT = "{{ config_root }}"
+PDM_IMAGE = "ghcr.io/longqt-sea/proxmox-datacenter-manager"
+PVE_IMAGE = "ghcr.io/longqt-sea/proxmox-ve"
+
+# ============================================================================
+# Tasks - Apple Container (macOS 26+)
+# ============================================================================
+
+[tasks.setup]
+description = "Create directories and start container system"
+run = "nu scripts/setup.nu"
+
+[tasks.start]
+description = "Start the Proxmox lab"
+run = "nu scripts/start.nu"
+
+[tasks.stop]
+description = "Stop the Proxmox lab"
+run = "nu scripts/stop.nu"
+
+[tasks.restart]
+description = "Restart the Proxmox lab"
+depends = ["stop"]
+run = "nu scripts/start.nu"
+
+[tasks.status]
+description = "Show container status"
+run = "container list"
+
+[tasks.logs]
+description = "Show PDM logs"
+run = "container logs pdm"
+
+[tasks."logs:pve1"]
+description = "Show PVE-1 logs"
+run = "container logs pve-1"
+
+[tasks.backup]
+description = "Backup PDM config and data"
+run = "nu scripts/backup.nu"
+
+[tasks.shell]
+description = "Open shell in PDM container"
+run = "container exec -it pdm /bin/bash"
+
+[tasks."shell:pve1"]
+description = "Open shell in PVE-1 container"
+run = "container exec -it pve-1 /bin/bash"
+
+[tasks.inspect]
+description = "Inspect PDM storage paths"
+run = "nu scripts/inspect.nu"
+
+[tasks.urls]
+description = "Show access URLs"
+run = "nu scripts/urls.nu"
+
+[tasks.clean]
+description = "Stop and remove all containers"
+run = "nu scripts/clean.nu"
