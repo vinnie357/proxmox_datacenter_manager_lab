@@ -106,4 +106,5 @@ mise backup
 - [Run Proxmox Inside Docker](https://www.virtualizationhowto.com/2026/01/run-proxmox-inside-docker-a-weekend-home-lab-project-to-learn-clustering-and-ha/)
 - [Proxmox Datacenter Manager](https://www.proxmox.com/en/products/proxmox-datacenter-manager/overview)
 - [PDM Documentation](https://pdm.proxmox.com/docs/)
-- [Container Images](https://github.com/longqt-sea)
+- [Containerized Proxmox](https://github.com/LongQT-sea/containerized-proxmox) - Container images for PVE and PDM
+- [Proxmox Backup Server Dockerfiles](https://github.com/ayufan/pve-backup-server-dockerfiles) - Unofficial PBS container image
