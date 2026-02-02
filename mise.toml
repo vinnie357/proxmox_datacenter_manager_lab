@@ -5,12 +5,17 @@
 _.file = ".env"
 PROJECT_ROOT = "{{ config_root }}"
 PDM_IMAGE = "ghcr.io/longqt-sea/proxmox-datacenter-manager"
-PVE_IMAGE = "ghcr.io/longqt-sea/proxmox-ve"
+# PVE_IMAGE = "ghcr.io/longqt-sea/proxmox-ve"  # upstream (missing rrdtool)
+PVE_IMAGE = "proxmox-ve"  # local build with rrdtool fix
 PBS_IMAGE = "ayufan/proxmox-backup-server"
 
 # ============================================================================
 # Tasks - Apple Container (macOS 26+)
 # ============================================================================
+
+[tasks.build]
+description = "Build custom container images (PVE with rrdtool fix)"
+run = "container build --platform linux/amd64 --tag proxmox-ve images/pve"
 
 [tasks.setup]
 description = "Create data directories and start container system"
