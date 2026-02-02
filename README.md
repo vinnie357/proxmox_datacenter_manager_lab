@@ -8,6 +8,9 @@ Run Proxmox Datacenter Manager (PDM), Proxmox VE nodes, and Proxmox Backup Serve
 # Set your root password
 echo 'ROOT_PASSWORD=yourpassword' > .env
 
+# Create volumes and directories
+mise setup
+
 # Start the lab
 mise start
 
@@ -57,6 +60,7 @@ docker compose up -d
 | `mise status` | Show container status |
 | `mise urls` | Show access URLs and credentials |
 | `mise remotes:status` | Show PDM remote connection status |
+| `mise pve:init` | Initialize PVE nodes (FQDN + cluster setup) |
 | `mise passwd` | Set root passwords on running containers |
 | `mise remotes` | Configure PVE/PBS nodes as remotes in PDM |
 | `mise backup` | Backup PDM data |
@@ -73,20 +77,24 @@ docker compose up -d
 ├── docker-compose.yml   # For Docker (Linux/Windows)
 ├── mise.toml            # Task definitions
 ├── scripts/             # Nushell automation scripts
-├── templates/           # Reference commands
 └── data/                # Persistent data (gitignored)
-    ├── pdm-config/      # PDM configuration
-    ├── pdm-data/        # PDM database
     ├── backups/         # mise backup output
-    ├── iso/             # ISO images (shared by all PVE nodes)
-    ├── pve-{1,2,3}/dump # Per-node VM backups
-    ├── pbs-config/      # PBS configuration
-    ├── pbs-lib/         # PBS metadata
-    ├── pbs-logs/        # PBS logs
-    └── pbs-backups/     # PBS backup storage
+    ├── pve-1/           # PVE node 1 storage
+    │   ├── iso/         # ISO images
+    │   └── dump/        # VM backups
+    ├── pve-2/           # PVE node 2 storage
+    └── pve-3/           # PVE node 3 storage
 ```
 
-Data persists in the `data/` directory across container restarts. Use `mise clean:data` to reset all persistent data.
+### Storage by Platform
+
+| Container | Apple Container | Docker |
+|-----------|-----------------|--------|
+| PDM | Named volume: `pdm-data` | Bind: `data/pdm-data` |
+| PVE | Bind: `data/pve-{n}/iso`, `data/pve-{n}/dump` | Bind: `data/ISOs`, `data/VM-Backup` (shared) |
+| PBS | Named volumes: `pbs-lib`, `pbs-backups` | Bind: `data/pbs-lib`, `data/pbs-backups` |
+
+Use `mise clean:data` to reset all persistent data (removes volumes and clears directories).
 
 ## How It Works
 
@@ -150,6 +158,34 @@ mise backup
 # Backups saved to data/backups/
 ```
 
+## Troubleshooting
+
+### PVE Nodes Show "Unknown" Status
+
+If PVE nodes appear offline or show "unknown" status in PDM:
+
+1. **FQDN Requirement**: PVE requires `hostname -f` to return a fully qualified domain name
+2. **Local Cluster**: Each node needs a cluster initialized for RRD data
+
+Run `mise pve:init` to fix both issues, or manually:
+
+```bash
+# Inside the PVE container
+# 1. Fix /etc/hosts with FQDN
+IP=$(hostname -I | awk '{print $1}')
+echo "$IP pve-1.local pve-1" >> /etc/hosts
+
+# 2. Initialize local cluster
+pvecm create pve-1cluster --link0 $IP
+
+# 3. Restart status daemon
+systemctl restart pvestatd
+```
+
+### Journald Crashes (Rosetta 2)
+
+Expected behavior under Rosetta 2 - systemd-journald crashes with SIGTRAP due to unsupported syscalls. The custom PVE image includes rsyslog as a workaround with journald configured to forward to syslog.
+
 ## Sources
 
 - [Run Proxmox Datacenter Manager in Docker](https://www.virtualizationhowto.com/2026/01/run-proxmox-datacenter-manager-in-a-docker-container-for-home-labs-and-testing/)
@@ -158,3 +194,5 @@ mise backup
 - [PDM Documentation](https://pdm.proxmox.com/docs/)
 - [Containerized Proxmox](https://github.com/LongQT-sea/containerized-proxmox) - Container images for PVE and PDM
 - [Proxmox Backup Server Dockerfiles](https://github.com/ayufan/pve-backup-server-dockerfiles) - Unofficial PBS container image
+- [Node Seems to be Offline - Proxmox Forum](https://forum.proxmox.com/threads/node-seems-to-be-offline.102216/) - FQDN hostname fix
+- [PVE Container RRD Fix](https://chrichri.ween.de/o/b545ee3dc6664f0fbd581805c9cb3ebf) - Local cluster initialization for RRD data
