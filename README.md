@@ -62,6 +62,7 @@ docker compose up -d
 | `mise backup` | Backup PDM data |
 | `mise clean` | Remove all containers |
 | `mise clean:data` | Reset all persistent data |
+| `mise download:images` | Download minimal test images |
 | `mise shell` | Shell into PDM |
 | `mise shell:pbs` | Shell into PBS |
 
@@ -115,6 +116,30 @@ mise remotes
 ```
 
 See `AGENTS.md` for manual configuration steps if auto-config fails.
+
+## Download Test Images
+
+Download minimal test images for VM and container testing:
+
+```bash
+mise download:images
+```
+
+This downloads:
+- **Tiny Core Linux ISO** (~24MB) - Smallest practical Linux for VM testing
+  - Source: http://tinycorelinux.net/
+  - Requires only 256MB RAM
+  - Reference: [TinyCore VM Testing](https://enterpriseadmins.org/blog/lab-infrastructure/lightweight-vm-for-testing-tinycore-linux/)
+
+For LXC containers, run inside a PVE node:
+```bash
+pveam update
+pveam download local alpine-3.21-default_20250108_amd64.tar.xz
+```
+
+- **Alpine Linux LXC** (~3-4MB compressed) - Smallest LXC template
+  - Source: https://images.linuxcontainers.org/
+  - Reference: [Container Size Comparison](https://nelsonslog.wordpress.com/2023/12/14/proxmox-linux-container-sizes-alpine-etc/)
 
 ## Backup & Restore
 

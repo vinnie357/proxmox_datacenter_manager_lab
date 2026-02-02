@@ -2,49 +2,39 @@
 
 Testing loop for Proxmox Datacenter Manager Lab.
 
-## Commands
+## Quick Start
 
 ```bash
-# Start the lab (includes password setup and remote configuration)
+# Set root password
+echo 'ROOT_PASSWORD=yourpassword' > .env
+
+# Setup and start
+mise setup
 mise start
 
-# Check status and URLs
-mise urls
-
-# Stop the lab
-mise stop
+# Check status
+mise status
 ```
 
-## Configuration Tasks
+## Available Tasks
 
-```bash
-# Set root passwords on running containers
-mise passwd
-
-# Configure PVE nodes as remotes in PDM
-mise remotes
-
-# Show remote connection status
-mise remotes:status
-```
-
-## Shell Access
-
-```bash
-mise shell        # PDM container
-mise shell:pve1   # PVE-1 container
-mise shell:pve2   # PVE-2 container
-mise shell:pve3   # PVE-3 container
-mise shell:pbs    # PBS container
-```
+Run `mise tasks` to see all available commands with descriptions.
 
 ## Testing Loop
 
-1. `mise start` - Start all containers, set passwords, configure remotes
-2. `mise urls` - Verify running and get access URLs
-3. Test PDM web UI at the provided URL
-4. `mise shell` - Debug inside containers if needed
-5. `mise stop` - Stop when done
+1. `mise setup` - Create directories, verify container system
+2. `mise start` - Start all containers, set passwords, configure remotes
+3. `mise status` - Verify containers running and remotes connected
+4. `mise urls` - Get access URLs
+5. Test PDM web UI at https://localhost:8443
+6. `mise shell` - Debug inside containers if needed
+7. `mise stop` - Stop when done
+8. `mise clean` - Remove containers (data persists)
+9. `mise clean:data` - Reset all data (optional)
+
+## Data Persistence
+
+Data persists in `data/` directory across container restarts. Use `mise clean:data` to reset everything.
 
 ## Manual Remote Configuration
 
@@ -61,4 +51,4 @@ If auto-configuration fails, add remotes manually:
    - Token: (from step 1)
    - Nodes: `<container-ip>:8006`
 
-Use `mise status` to find container IPs.
+Use `mise status` to find container IPs and hostnames.
