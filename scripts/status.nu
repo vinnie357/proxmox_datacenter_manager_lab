@@ -52,14 +52,35 @@ def get_containers [] {
         let containers = ($output.stdout | from json)
         $containers | where status == "running" | each { |c|
             let cfg = $c.configuration
+            let name = $cfg.id
             let image_name = ($cfg.image.reference | split row "/" | last | split row ":" | first)
             let mem_mb = ($cfg.resources.memoryInBytes / 1048576 | math round)
             let net = if ($c.networks | is-not-empty) { $c.networks | first } else { {} }
             let addr = ($net.ipv4Address? | default "-" | split row "/" | first)
             let hostname = ($net.hostname? | default "" | str trim --right --char ".")
+
+            # Determine port based on container type
+            let port = if $name == "pdm" {
+                8443
+            } else if ($name | str starts-with "pve") {
+                8006
+            } else if $name == "pbs" {
+                8007
+            } else {
+                8006
+            }
+
+            let url = if ($hostname | is-not-empty) {
+                $"https://($hostname):($port)"
+            } else if $addr != "-" {
+                $"https://($addr):($port)"
+            } else {
+                "-"
+            }
+
             {
-                name: $cfg.id
-                hostname: (if ($hostname | is-empty) { "-" } else { $hostname })
+                name: $name
+                url: $url
                 state: $c.status
                 addr: $addr
                 cpus: $cfg.resources.cpus
