@@ -6,8 +6,8 @@
 # - Service masking for Rosetta 2 compatibility (same as PDM image)
 # - 4GB RAM minimum for pveproxy to start without OOM
 #
-# Volume mounts persist data across container restarts.
-# Use `mise clean:data` to reset all persistent data.
+# Uses named volumes for persistent storage.
+# Entrypoint wrappers fix ownership before starting services.
 
 def main [] {
     let project_root = ($env.PROJECT_ROOT? | default (pwd))
@@ -31,21 +31,21 @@ def main [] {
 
     # Start PDM
     print "Starting PDM..."
-    start_pdm $pdm_image $dns_domain $project_root
+    start_pdm $pdm_image $dns_domain
 
     # Start PVE nodes
     print "Starting PVE-1..."
-    start_pve "pve-1" $pve_image 8006 2222 $dns_domain $project_root
+    start_pve "pve-1" $pve_image 8006 2222 $dns_domain
 
     print "Starting PVE-2..."
-    start_pve "pve-2" $pve_image 8007 2223 $dns_domain $project_root
+    start_pve "pve-2" $pve_image 8007 2223 $dns_domain
 
     print "Starting PVE-3..."
-    start_pve "pve-3" $pve_image 8008 2224 $dns_domain $project_root
+    start_pve "pve-3" $pve_image 8008 2224 $dns_domain
 
     # Start PBS
     print "Starting PBS..."
-    start_pbs $pbs_image $dns_domain $project_root
+    start_pbs $pbs_image $dns_domain
 
     # Set passwords if ROOT_PASSWORD is configured
     let root_password = ($env.ROOT_PASSWORD? | default "")
@@ -103,7 +103,7 @@ def get_dns_domain [] {
 def is_running [name: string] {
     try {
         let list = (^container list --format json | from json)
-        $list | any { |c| $c.ID == $name }
+        $list | any { |c| $c.configuration.id == $name and $c.status == "running" }
     } catch {
         false
     }
@@ -115,7 +115,7 @@ def remove_if_exists [name: string] {
     } catch { }
 }
 
-def start_pdm [image: string, dns_domain: string, project_root: string] {
+def start_pdm [image: string, dns_domain: string] {
     if (is_running "pdm") {
         print "  pdm already running"
         return
@@ -123,6 +123,9 @@ def start_pdm [image: string, dns_domain: string, project_root: string] {
 
     # Force remove any stopped/failed container
     try { ^container rm -f pdm out+err> /dev/null } catch { }
+
+    # Entrypoint fixes volume ownership before starting services
+    let init_script = "chown -R www-data:www-data /var/lib/proxmox-datacenter-manager && exec /entrypoint.sh /sbin/init --log-target=console --log-level=info"
 
     try {
         if ($dns_domain | is-not-empty) {
@@ -132,20 +135,22 @@ def start_pdm [image: string, dns_domain: string, project_root: string] {
                 --rosetta
                 --virtualization
                 --dns-domain $dns_domain
-                -v $"($project_root)/data/pdm-config:/etc/proxmox-datacenter-manager"
-                -v $"($project_root)/data/pdm-data:/var/lib/proxmox-datacenter-manager"
+                --mount "type=volume,source=pdm-data,target=/var/lib/proxmox-datacenter-manager"
                 -p 8443:8443
-                $image out+err> /dev/null)
+                --entrypoint /bin/bash
+                $image
+                -c $init_script out+err> /dev/null)
         } else {
             (^container run -d
                 --name pdm
                 --platform linux/amd64
                 --rosetta
                 --virtualization
-                -v $"($project_root)/data/pdm-config:/etc/proxmox-datacenter-manager"
-                -v $"($project_root)/data/pdm-data:/var/lib/proxmox-datacenter-manager"
+                --mount "type=volume,source=pdm-data,target=/var/lib/proxmox-datacenter-manager"
                 -p 8443:8443
-                $image out+err> /dev/null)
+                --entrypoint /bin/bash
+                $image
+                -c $init_script out+err> /dev/null)
         }
         print "  pdm started"
     } catch { |e|
@@ -153,7 +158,7 @@ def start_pdm [image: string, dns_domain: string, project_root: string] {
     }
 }
 
-def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_domain: string, project_root: string] {
+def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_domain: string] {
     if (is_running $name) {
         print $"  ($name) already running"
         return
@@ -161,9 +166,12 @@ def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_do
 
     remove_if_exists $name
 
+    let project_root = ($env.PROJECT_ROOT? | default (pwd))
+
     # PVE requires service masking for Rosetta 2 compatibility and more memory
-    # Services that fail under Rosetta are masked before starting systemd
-    let init_script = "
+    # Also fix volume ownership before starting systemd
+    let init_script = $"
+chown -R root:root /var/lib/vz/dump /var/lib/vz/template/iso 2>/dev/null
 systemctl mask proc-sys-fs-binfmt_misc.automount sys-kernel-config.mount sys-kernel-debug.mount sys-kernel-tracing.mount kmod.service systemd-modules-load.service systemd-udevd.service 2>/dev/null
 exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
 "
@@ -177,8 +185,8 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
                 --virtualization
                 --memory 4g
                 --dns-domain $dns_domain
-                -v $"($project_root)/data/($name)/dump:/var/lib/vz/dump"
-                -v $"($project_root)/data/iso:/var/lib/vz/template/iso"
+                --mount $"type=bind,source=($project_root)/data/($name)/dump,target=/var/lib/vz/dump"
+                --mount $"type=bind,source=($project_root)/data/($name)/iso,target=/var/lib/vz/template/iso"
                 -p $"($web_port):8006"
                 -p $"($ssh_port):22"
                 --entrypoint /bin/bash
@@ -191,8 +199,8 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
                 --rosetta
                 --virtualization
                 --memory 4g
-                -v $"($project_root)/data/($name)/dump:/var/lib/vz/dump"
-                -v $"($project_root)/data/iso:/var/lib/vz/template/iso"
+                --mount $"type=bind,source=($project_root)/data/($name)/dump,target=/var/lib/vz/dump"
+                --mount $"type=bind,source=($project_root)/data/($name)/iso,target=/var/lib/vz/template/iso"
                 -p $"($web_port):8006"
                 -p $"($ssh_port):22"
                 --entrypoint /bin/bash
@@ -205,7 +213,7 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
     }
 }
 
-def start_pbs [image: string, dns_domain: string, project_root: string] {
+def start_pbs [image: string, dns_domain: string] {
     if (is_running "pbs") {
         print "  pbs already running"
         return
@@ -214,7 +222,8 @@ def start_pbs [image: string, dns_domain: string, project_root: string] {
     remove_if_exists "pbs"
 
     # PBS requires tmpfs at /run for its shmem
-    let init_script = "mount -t tmpfs tmpfs /run && /usr/bin/runsvdir /runit"
+    # Fix volume ownership before starting services
+    let init_script = "chown -R backup:backup /var/lib/proxmox-backup /backups 2>/dev/null; mount -t tmpfs tmpfs /run && /usr/bin/runsvdir /runit"
 
     try {
         if ($dns_domain | is-not-empty) {
@@ -225,10 +234,8 @@ def start_pbs [image: string, dns_domain: string, project_root: string] {
                 --virtualization
                 --memory 2g
                 --dns-domain $dns_domain
-                -v $"($project_root)/data/pbs-config:/etc/proxmox-backup"
-                -v $"($project_root)/data/pbs-lib:/var/lib/proxmox-backup"
-                -v $"($project_root)/data/pbs-logs:/var/log/proxmox-backup"
-                -v $"($project_root)/data/pbs-backups:/backups"
+                --mount "type=volume,source=pbs-lib,target=/var/lib/proxmox-backup"
+                --mount "type=volume,source=pbs-backups,target=/backups"
                 -p 8009:8007
                 --entrypoint /bin/bash
                 $image
@@ -240,10 +247,8 @@ def start_pbs [image: string, dns_domain: string, project_root: string] {
                 --rosetta
                 --virtualization
                 --memory 2g
-                -v $"($project_root)/data/pbs-config:/etc/proxmox-backup"
-                -v $"($project_root)/data/pbs-lib:/var/lib/proxmox-backup"
-                -v $"($project_root)/data/pbs-logs:/var/log/proxmox-backup"
-                -v $"($project_root)/data/pbs-backups:/backups"
+                --mount "type=volume,source=pbs-lib,target=/var/lib/proxmox-backup"
+                --mount "type=volume,source=pbs-backups,target=/backups"
                 -p 8009:8007
                 --entrypoint /bin/bash
                 $image

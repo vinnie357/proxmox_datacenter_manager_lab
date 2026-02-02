@@ -9,31 +9,6 @@ def main [] {
     print "Setting up Proxmox Datacenter Manager Lab..."
     print $"Project root: ($project_root)"
 
-    # Create data directories
-    let dirs = [
-        "data/pdm-config"
-        "data/pdm-data"
-        "data/backups"
-        "data/iso"
-        "data/pve-1/dump"
-        "data/pve-2/dump"
-        "data/pve-3/dump"
-        "data/pbs-config"
-        "data/pbs-lib"
-        "data/pbs-logs"
-        "data/pbs-backups"
-    ]
-
-    for dir in $dirs {
-        let path = $"($project_root)/($dir)"
-        if not ($path | path exists) {
-            mkdir $path
-            print $"  Created: ($dir)/"
-        } else {
-            print $"  Exists:  ($dir)/"
-        }
-    }
-
     # Check for Apple container command
     print ""
     print "Checking Apple Container..."
@@ -52,6 +27,51 @@ def main [] {
         print "  Container system ready"
     } catch {
         print "  WARNING: Could not start container system"
+    }
+
+    # Create named volumes for persistent storage (services need specific ownership)
+    print ""
+    print "Creating volumes..."
+    let volumes = [
+        "pdm-data"
+        "pbs-lib"
+        "pbs-backups"
+    ]
+
+    for vol in $volumes {
+        try {
+            let existing = (^container volume list --format json | from json)
+            if ($existing | where Name == $vol | is-empty) {
+                ^container volume create $vol out+err> /dev/null
+                print $"  Created volume: ($vol)"
+            } else {
+                print $"  Exists volume:  ($vol)"
+            }
+        } catch {
+            print $"  WARNING: Could not create volume ($vol)"
+        }
+    }
+
+    # Create local directories for PVE storage (bind mounts - easier to access)
+    print ""
+    print "Creating local directories..."
+    let dirs = [
+        "data/backups"
+        "data/pve-1/iso"
+        "data/pve-1/dump"
+        "data/pve-2/iso"
+        "data/pve-2/dump"
+        "data/pve-3/iso"
+        "data/pve-3/dump"
+    ]
+    for dir in $dirs {
+        let path = $"($project_root)/($dir)"
+        if not ($path | path exists) {
+            mkdir $path
+            print $"  Created: ($dir)/"
+        } else {
+            print $"  Exists:  ($dir)/"
+        }
     }
 
     # Test x86_64 emulation
