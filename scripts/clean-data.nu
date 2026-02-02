@@ -3,7 +3,9 @@
 # Reset all persistent data (volumes and directories)
 # Requires confirmation before deleting
 
-def main [] {
+def main [
+    --yes (-y)  # Skip confirmation prompt
+] {
     let project_root = ($env.PROJECT_ROOT? | default (pwd))
 
     let volumes = [
@@ -39,16 +41,17 @@ def main [] {
         let path = $"($project_root)/($dir)"
         if ($path | path exists) {
             let count = (ls $path | length)
-            print $"  ($dir)/ (($count) items)"
+            print $"  ($dir)/ [($count) items]"
         }
     }
 
     print ""
-    let confirm = (input "Are you sure you want to delete all data? [y/N] ")
-
-    if ($confirm | str downcase) != "y" {
-        print "Aborted."
-        return
+    if not $yes {
+        let confirm = (input "Are you sure you want to delete all data? [y/N] ")
+        if ($confirm | str downcase) != "y" {
+            print "Aborted."
+            return
+        }
     }
 
     print ""
@@ -58,7 +61,7 @@ def main [] {
             ^container volume rm $vol out+err> /dev/null
             print $"  Removed: ($vol)"
         } catch {
-            print $"  Skipped: ($vol) (not found or in use)"
+            print $"  Skipped: ($vol) - not found or in use"
         }
     }
 
@@ -71,7 +74,7 @@ def main [] {
                 rm -rf ($path | path join "*")
                 print $"  Cleaned: ($dir)/"
             } catch {
-                print $"  Skipped: ($dir)/ (empty or error)"
+                print $"  Skipped: ($dir)/ - empty or error"
             }
         }
     }
