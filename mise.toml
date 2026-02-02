@@ -13,11 +13,11 @@ PBS_IMAGE = "ayufan/proxmox-backup-server"
 # ============================================================================
 
 [tasks.setup]
-description = "Create directories and start container system"
+description = "Create data directories and start container system"
 run = "nu scripts/setup.nu"
 
 [tasks.start]
-description = "Start the Proxmox lab"
+description = "Start PDM + PVE nodes + PBS, set passwords, configure remotes"
 run = "nu scripts/start.nu"
 
 [tasks.stop]
@@ -46,7 +46,7 @@ description = "Set root passwords on running containers"
 run = "nu scripts/passwd.nu"
 
 [tasks.remotes]
-description = "Configure PVE nodes as remotes in PDM"
+description = "Configure PVE/PBS nodes as remotes in PDM"
 run = "nu scripts/remotes.nu"
 
 [tasks."remotes:status"]
@@ -82,7 +82,7 @@ description = "Inspect PDM storage paths"
 run = "nu scripts/inspect.nu"
 
 [tasks.urls]
-description = "Show access URLs"
+description = "Show access URLs and credentials"
 run = "nu scripts/urls.nu"
 
 [tasks.clean]
@@ -92,3 +92,7 @@ run = "nu scripts/clean.nu"
 [tasks."clean:data"]
 description = "Remove all persistent data (requires confirmation)"
 run = "nu scripts/clean-data.nu"
+
+[tasks."download:images"]
+description = "Download minimal test images (Tiny Core Linux ISO)"
+run = "nu scripts/download-images.nu"
