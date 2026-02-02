@@ -1,4 +1,4 @@
-# Proxmox Datacenter Manager + PVE Cluster Lab
+# Proxmox Datacenter Manager + PVE Cluster + PBS Lab
 # For use with Docker on Linux/Windows (x86_64)
 #
 # Usage:
@@ -9,6 +9,7 @@
 #   PVE-1:    https://localhost:8006
 #   PVE-2:    https://localhost:8007
 #   PVE-3:    https://localhost:8008
+#   PBS:      https://localhost:8009
 
 services:
   # Proxmox Datacenter Manager
@@ -72,6 +73,8 @@ services:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
       - /lib/modules:/usr/lib/modules:ro
+      - ./data/VM-Backup:/var/lib/vz/dump
+      - ./data/ISOs:/var/lib/vz/template/iso
 
   # Proxmox VE Node 3
   pve-3:
@@ -91,6 +94,24 @@ services:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
       - /lib/modules:/usr/lib/modules:ro
+      - ./data/VM-Backup:/var/lib/vz/dump
+      - ./data/ISOs:/var/lib/vz/template/iso
+
+  # Proxmox Backup Server
+  pbs:
+    image: ayufan/proxmox-backup-server
+    platform: linux/amd64
+    container_name: pbs
+    hostname: pbs
+    privileged: true
+    restart: unless-stopped
+    ports:
+      - "8009:8007"
+    networks:
+      - proxmox_net
+    volumes:
+      - ./data/pbs-lib:/var/lib/proxmox-backup
+      - ./data/pbs-backups:/backups
 
 networks:
   proxmox_net:
