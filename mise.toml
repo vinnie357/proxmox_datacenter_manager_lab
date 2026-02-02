@@ -39,16 +39,36 @@ description = "Show container and PDM status"
 run = "nu scripts/status.nu"
 
 [tasks.logs]
-description = "Show PDM logs"
-run = "container logs pdm"
+description = "Show logs from all containers (-f to follow)"
+run = "nu scripts/logs.nu"
+
+[tasks."logs:pdm"]
+description = "Show PDM logs (-f to follow)"
+run = "nu scripts/logs.nu pdm"
 
 [tasks."logs:pve1"]
-description = "Show PVE-1 logs"
-run = "container logs pve-1"
+description = "Show PVE-1 logs (-f to follow)"
+run = "nu scripts/logs.nu pve-1"
+
+[tasks."logs:pve2"]
+description = "Show PVE-2 logs (-f to follow)"
+run = "nu scripts/logs.nu pve-2"
+
+[tasks."logs:pve3"]
+description = "Show PVE-3 logs (-f to follow)"
+run = "nu scripts/logs.nu pve-3"
+
+[tasks."logs:pbs"]
+description = "Show PBS logs (-f to follow)"
+run = "nu scripts/logs.nu pbs"
 
 [tasks.passwd]
 description = "Set root passwords on running containers"
 run = "nu scripts/passwd.nu"
+
+[tasks."pve:init"]
+description = "Initialize PVE nodes (FQDN + cluster setup)"
+run = "nu scripts/pve-init.nu"
 
 [tasks.remotes]
 description = "Configure PVE/PBS nodes as remotes in PDM"
