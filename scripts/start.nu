@@ -59,6 +59,11 @@ def main [] {
         set_pbs_password "pbs" $root_password
     }
 
+    # Initialize PVE nodes (FQDN fix + local cluster)
+    print ""
+    print "Initializing PVE nodes..."
+    nu $"($project_root)/scripts/pve-init.nu"
+
     print ""
     print "Waiting for services to initialize..."
     sleep 30sec
@@ -169,9 +174,11 @@ def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_do
     let project_root = ($env.PROJECT_ROOT? | default (pwd))
 
     # PVE requires service masking for Rosetta 2 compatibility and more memory
+    # Install rrdtool (missing from image) for node status graphs
     # Also fix volume ownership before starting systemd
-    let init_script = $"
+    let init_script = "
 chown -R root:root /var/lib/vz/dump /var/lib/vz/template/iso 2>/dev/null
+mkdir -p /var/lib/rrdcached/db/pve-node-9.0
 systemctl mask proc-sys-fs-binfmt_misc.automount sys-kernel-config.mount sys-kernel-debug.mount sys-kernel-tracing.mount kmod.service systemd-modules-load.service systemd-udevd.service 2>/dev/null
 exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
 "
