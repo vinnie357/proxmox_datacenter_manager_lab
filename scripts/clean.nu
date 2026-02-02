@@ -5,7 +5,7 @@
 def main [] {
     print "Cleaning up Proxmox lab..."
 
-    let containers = ["pdm" "pve-1" "pve-2" "pve-3"]
+    let containers = ["pdm" "pve-1" "pve-2" "pve-3" "pbs"]
 
     for name in $containers {
         try {
