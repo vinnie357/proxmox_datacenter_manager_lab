@@ -5,6 +5,7 @@
 # Fixes required for containerized PVE:
 # 1. Sets up FQDN in /etc/hosts (required for node status)
 # 2. Initializes local cluster on first boot (required for RRD data)
+# 3. Broadcasts node status to pmxcfs (pvestatd broadcasts don't persist in containers)
 #
 # References:
 # - https://forum.proxmox.com/threads/node-seems-to-be-offline.102216/
@@ -47,6 +48,10 @@ def init_pve_node [name: string, dns_domain: string] {
     # Initialize local cluster if not already done
     # Required for RRD status data to be written
     init_local_cluster $name
+
+    # Broadcast node status to pmxcfs
+    # pvestatd's broadcasts don't persist in containerized environments
+    broadcast_node_status $name
 }
 
 def fix_hosts_fqdn [name: string, dns_domain: string] {
@@ -100,5 +105,47 @@ def init_local_cluster [name: string] {
         print $"  ($name) cluster initialized"
     } catch { |e|
         print $"  ($name) cluster init failed: ($e)"
+    }
+}
+
+def broadcast_node_status [name: string] {
+    # Broadcast node status to pmxcfs cluster filesystem
+    # In containerized PVE, pvestatd's broadcasts don't persist to pmxcfs
+    # This manual broadcast makes nodes show as "online" in the API
+    try {
+        ^container exec $name perl -e '
+use strict;
+use warnings;
+use PVE::ProcFSTools;
+use PVE::Cluster;
+use PVE::INotify;
+
+my $nodename = PVE::INotify::nodename();
+my $stat = PVE::ProcFSTools::read_proc_stat();
+my $meminfo = PVE::ProcFSTools::read_meminfo();
+my $uptime = int(PVE::ProcFSTools::read_proc_uptime());
+my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
+
+my $data = join(":",
+    $uptime,
+    "",
+    $cpuinfo->{cpus} || 4,
+    $cpuinfo->{cpus} || 4,
+    $cpuinfo->{cpus} || 4,
+    sprintf("%.4f", $stat->{cpu} || 0),
+    0,
+    $meminfo->{memtotal} || 0,
+    ($meminfo->{memtotal} - $meminfo->{memavailable}) || 0,
+    0, 0,
+    500000000000,
+    50000000000,
+    (0) x 13
+);
+
+PVE::Cluster::broadcast_rrd("pve-node-9.0/$nodename", $data);
+' out+err> /dev/null
+        print $"  ($name) status broadcast done"
+    } catch { |e|
+        print $"  ($name) status broadcast failed: ($e)"
     }
 }
