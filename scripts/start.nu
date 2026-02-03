@@ -174,11 +174,13 @@ def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_do
     let project_root = ($env.PROJECT_ROOT? | default (pwd))
 
     # PVE requires service masking for Rosetta 2 compatibility and more memory
-    # Install rrdtool (missing from image) for node status graphs
     # Also fix volume ownership before starting systemd
+    # Patch PVE to disable seccomp for LXC - required because seccomp_load() syscall
+    # fails in nested containers (Apple Container -> PVE -> LXC)
     let init_script = "
 chown -R root:root /var/lib/vz/dump /var/lib/vz/template/iso 2>/dev/null
 mkdir -p /var/lib/rrdcached/db/pve-node-9.0
+sed -i '/^sub make_seccomp_config {/a\\    # PATCHED: Disable seccomp for Apple Container (nested container limitation)\\n    return \"\";' /usr/share/perl5/PVE/LXC.pm
 systemctl mask proc-sys-fs-binfmt_misc.automount sys-kernel-config.mount sys-kernel-debug.mount sys-kernel-tracing.mount kmod.service systemd-modules-load.service systemd-udevd.service 2>/dev/null
 exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
 "
