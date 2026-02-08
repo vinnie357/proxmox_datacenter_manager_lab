@@ -53,7 +53,7 @@ def main [
     # Create container (no networking - vmbr0 unavailable in nested containers)
     print ""
     print $"Creating LXC container ($vmid)..."
-    ^container exec $node bash -c $"pct create ($vmid) local:vztmpl/($template) --hostname test-ct --memory 128 --rootfs local:0.5" out+err> /dev/null
+    ^container exec $node bash -c $"pct create ($vmid) local:vztmpl/($template) --hostname test-ct --memory 128 --rootfs local:0.5 --net0 name=eth0,bridge=vmbr1,ip=172.16.99.100/24,gw=172.16.99.1" out+err> /dev/null
     print "  Created"
 
     # Start container
@@ -73,11 +73,14 @@ def main [
 
     # Read Alpine release using nsenter (pct exec fails under Rosetta 2)
     let pid = (^container exec $node bash -c $"lxc-info -n ($vmid) -p -H" | str trim)
-    let release = (^container exec $node bash -c $"nsenter -t ($pid) -m -u -i -p -- cat /etc/alpine-release" | str trim)
+    let release = (^container exec $node bash -c $"nsenter -t ($pid) -m -u -i -p -n -- cat /etc/alpine-release" | str trim)
     print $"  Alpine release: ($release)"
 
-    let hostname = (^container exec $node bash -c $"nsenter -t ($pid) -m -u -i -p -- hostname" | str trim)
+    let hostname = (^container exec $node bash -c $"nsenter -t ($pid) -m -u -i -p -n -- hostname" | str trim)
     print $"  Hostname: ($hostname)"
+
+    let net = (^container exec $node bash -c $"pct config ($vmid) | grep net0" | str trim)
+    print $"  Network: ($net)"
 
     # Cleanup
     if not $keep {
@@ -89,7 +92,7 @@ def main [
     } else {
         print ""
         print $"Container ($vmid) kept running on ($node)"
-        print $"  Enter with: mise shell:pve1 then nsenter -t ($pid) -m -u -i -p -- /bin/sh"
+        print $"  Enter with: mise shell:pve1 then nsenter -t ($pid) -m -u -i -p -n -- /bin/sh"
     }
 
     print ""

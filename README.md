@@ -37,9 +37,10 @@ mise shell:pve1
 pveam update
 pveam download local alpine-3.23-default_20260116_amd64.tar.xz
 
-# Create and start an LXC container (no networking - vmbr0 unavailable in nested containers)
+# Create and start an LXC container on the vmbr1 NAT bridge (172.16.99.0/24)
 pct create 100 local:vztmpl/alpine-3.23-default_20260116_amd64.tar.xz \
-  --hostname test-ct --memory 128 --rootfs local:0.5
+  --hostname test-ct --memory 128 --rootfs local:0.5 \
+  --net0 name=eth0,bridge=vmbr1,ip=172.16.99.100/24,gw=172.16.99.1
 pct start 100
 
 # Verify the container is running
@@ -47,7 +48,7 @@ pct list
 
 # Enter the container using nsenter (pct enter/exec fail under Rosetta 2)
 PID=$(lxc-info -n 100 -p -H)
-nsenter -t $PID -m -u -i -p -- /bin/sh
+nsenter -t $PID -m -u -i -p -n -- /bin/sh
 
 # You're now inside the Alpine container - run a command to verify
 cat /etc/alpine-release
@@ -57,7 +58,7 @@ exit
 exit
 ```
 
-> **Note (Apple Container):** `pct enter` and `pct exec` fail with `memfd_create` errors under Rosetta 2. Use `nsenter` as shown above. Networking (`--net0`) requires `vmbr0` which is not available in nested containers.
+> **Note (Apple Container):** `pct enter` and `pct exec` fail with `memfd_create` errors under Rosetta 2. Use `nsenter` as shown above. LXC networking uses `vmbr1` (NAT bridge at `172.16.99.0/24`); `vmbr0` does not exist. LXC containers are reachable from the PVE node but not directly from the macOS host (double NAT).
 
 Run `mise urls` to see access URLs and container status.
 
