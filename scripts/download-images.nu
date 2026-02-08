@@ -104,5 +104,5 @@ def main [] {
     print "Run inside a PVE container to download:"
     print "  pveam update"
     print "  pveam available | grep alpine"
-    print "  pveam download local alpine-3.21-default_20250108_amd64.tar.xz"
+    print "  pveam download local alpine-3.23-default_20260116_amd64.tar.xz"
 }

@@ -24,6 +24,41 @@ mise urls
 mise stop
 ```
 
+## Test LXC Container
+
+After the lab is running, verify you can create and run an LXC container on a PVE node:
+
+```bash
+# Download test images (Tiny Core ISO + Alpine LXC instructions)
+mise download:images
+
+# Shell into a PVE node and download the Alpine LXC template
+mise shell:pve1
+pveam update
+pveam download local alpine-3.23-default_20260116_amd64.tar.xz
+
+# Create and start an LXC container (no networking - vmbr0 unavailable in nested containers)
+pct create 100 local:vztmpl/alpine-3.23-default_20260116_amd64.tar.xz \
+  --hostname test-ct --memory 128 --rootfs local:0.5
+pct start 100
+
+# Verify the container is running
+pct list
+
+# Enter the container using nsenter (pct enter/exec fail under Rosetta 2)
+PID=$(lxc-info -n 100 -p -H)
+nsenter -t $PID -m -u -i -p -- /bin/sh
+
+# You're now inside the Alpine container - run a command to verify
+cat /etc/alpine-release
+exit
+
+# Exit the PVE node
+exit
+```
+
+> **Note (Apple Container):** `pct enter` and `pct exec` fail with `memfd_create` errors under Rosetta 2. Use `nsenter` as shown above. Networking (`--net0`) requires `vmbr0` which is not available in nested containers.
+
 Run `mise urls` to see access URLs and container status.
 
 If a DNS domain is configured (`container system dns ls`), containers are also accessible via hostnames like `pdm.test.local`.
@@ -37,6 +72,8 @@ Credentials are set from `ROOT_PASSWORD` in `.env` file. Run `mise urls` to see 
 ### macOS 26+ (Tahoe) - Apple Container
 
 Uses Apple's native containerization with Rosetta 2 for x86_64 emulation.
+
+Tested with: `container CLI version 0.5.0`
 
 ```bash
 # Verify container command exists
@@ -100,9 +137,8 @@ Use `mise clean:data` to reset all persistent data (removes volumes and clears d
 
 ### Apple Container (macOS 26+)
 
-Uses three key flags:
-- `--platform linux/amd64` - x86_64 image
-- `--rosetta` - Rosetta 2 emulation
+Uses two key flags:
+- `--platform linux/amd64` - x86_64 image (Rosetta 2 emulation is automatic)
 - `--virtualization` - Required for systemd
 
 ### Docker (Linux/Windows)
@@ -142,7 +178,7 @@ This downloads:
 For LXC containers, run inside a PVE node:
 ```bash
 pveam update
-pveam download local alpine-3.21-default_20250108_amd64.tar.xz
+pveam download local alpine-3.23-default_20260116_amd64.tar.xz
 ```
 
 - **Alpine Linux LXC** (~3-4MB compressed) - Smallest LXC template

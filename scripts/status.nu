@@ -159,8 +159,8 @@ def get_pdm_resources [password: string] {
         $data | each { |r|
             let resources = ($r.resources? | default [])
             let nodes = ($resources | where { |res| $res.type == "pve-node" or $res.type == "pbs-node" })
-            let vms = ($resources | where type == "qemu")
-            let cts = ($resources | where type == "lxc")
+            let vms = ($resources | where type == "pve-qemu")
+            let cts = ($resources | where type == "pve-lxc")
             let storage = ($resources | where type == "pve-storage")
             let networks = ($resources | where type == "pve-network")
 
@@ -170,7 +170,7 @@ def get_pdm_resources [password: string] {
                 storage: ($storage | length)
                 networks: ($networks | length)
                 vms: ($vms | length)
-                cts: ($cts | length)
+                lxc: ($cts | length)
             }
         }
     } catch {
