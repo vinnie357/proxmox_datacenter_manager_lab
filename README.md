@@ -60,6 +60,44 @@ exit
 
 > **Note (Apple Container):** `pct enter` and `pct exec` fail with `memfd_create` errors under Rosetta 2. Use `nsenter` as shown above. LXC networking uses `vmbr1` (NAT bridge at `172.16.99.0/24`); `vmbr0` does not exist. LXC containers are reachable from the PVE node but not directly from the macOS host (double NAT).
 
+## Expose LXC Services
+
+LXC containers on `vmbr1` are not reachable from macOS (double NAT). The ingress proxy solves this by forwarding traffic from the PVE node's routable IP to LXC containers on the internal bridge.
+
+```
+macOS -> PVE node (192.168.64.x:port) -> iptables DNAT -> ingress LXC (172.16.99.2) -> nginx stream -> target LXC
+```
+
+This is **opt-in** and does not modify the normal startup flow.
+
+```bash
+# Create a test LXC and keep it running
+mise test:lxc -- --keep
+
+# Create the ingress proxy on pve-1
+mise ingress -- --node pve-1
+
+# Expose LXC 100's port 80 to the macOS host
+mise expose -- --node pve-1 --vmid 100 --port 80
+
+# Access the service from macOS
+# (use the URL printed by mise expose)
+curl http://<pve-1-ip>:80
+
+# List all exposed services
+mise expose:list
+
+# Remove the exposed port
+mise unexpose -- --node pve-1 --vmid 100 --port 80
+```
+
+Use `--host-port` to map to a different port on the PVE node:
+
+```bash
+mise expose -- --node pve-1 --vmid 100 --port 80 --host-port 9080
+# Access at http://<pve-1-ip>:9080
+```
+
 Run `mise urls` to see access URLs and container status.
 
 If a DNS domain is configured (`container system dns ls`), containers are also accessible via hostnames like `pdm.test.local`.
@@ -107,6 +145,10 @@ docker compose up -d
 | `mise download:images` | Download minimal test images |
 | `mise shell` | Shell into PDM |
 | `mise shell:pbs` | Shell into PBS |
+| `mise ingress` | Create ingress LXC proxy on PVE nodes |
+| `mise expose` | Expose an LXC port through the ingress proxy |
+| `mise unexpose` | Remove an exposed LXC port |
+| `mise expose:list` | List exposed LXC services |
 
 ## Project Structure
 

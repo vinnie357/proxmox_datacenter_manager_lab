@@ -125,3 +125,23 @@ run = "nu scripts/download-images.nu"
 [tasks."test:lxc"]
 description = "Test LXC container creation on a PVE node"
 run = "nu scripts/test-lxc.nu"
+
+# ============================================================================
+# Ingress - Expose LXC services to macOS host
+# ============================================================================
+
+[tasks.ingress]
+description = "Create ingress LXC proxy on PVE nodes (opt-in)"
+run = "nu scripts/ingress.nu"
+
+[tasks.expose]
+description = "Expose an LXC port through the ingress proxy"
+run = "nu scripts/expose.nu"
+
+[tasks.unexpose]
+description = "Remove an exposed LXC port from the ingress proxy"
+run = "nu scripts/unexpose.nu"
+
+[tasks."expose:list"]
+description = "List exposed LXC services across PVE nodes"
+run = "nu scripts/expose-list.nu"
