@@ -121,3 +121,7 @@ run = "nu scripts/clean-data.nu"
 [tasks."download:images"]
 description = "Download minimal test images (Tiny Core Linux ISO)"
 run = "nu scripts/download-images.nu"
+
+[tasks."test:lxc"]
+description = "Test LXC container creation on a PVE node"
+run = "nu scripts/test-lxc.nu"
