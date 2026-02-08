@@ -66,7 +66,7 @@ def main [] {
 
     print ""
     print "Waiting for services to initialize..."
-    sleep 30sec
+    sleep 60sec
 
     # Configure remotes
     print ""
@@ -137,7 +137,7 @@ def start_pdm [image: string, dns_domain: string] {
             (^container run -d
                 --name pdm
                 --platform linux/amd64
-                --rosetta
+
                 --virtualization
                 --dns-domain $dns_domain
                 --mount "type=volume,source=pdm-data,target=/var/lib/proxmox-datacenter-manager"
@@ -149,7 +149,7 @@ def start_pdm [image: string, dns_domain: string] {
             (^container run -d
                 --name pdm
                 --platform linux/amd64
-                --rosetta
+
                 --virtualization
                 --mount "type=volume,source=pdm-data,target=/var/lib/proxmox-datacenter-manager"
                 -p 8443:8443
@@ -181,6 +181,7 @@ def start_pve [name: string, image: string, web_port: int, ssh_port: int, dns_do
 chown -R root:root /var/lib/vz/dump /var/lib/vz/template/iso 2>/dev/null
 mkdir -p /var/lib/rrdcached/db/pve-node-9.0
 sed -i '/^sub make_seccomp_config {/a\\    # PATCHED: Disable seccomp for Apple Container (nested container limitation)\\n    return \"\";' /usr/share/perl5/PVE/LXC.pm
+sed -i 's|^lxc.seccomp.profile|# lxc.seccomp.profile|' /usr/share/lxc/config/common.conf
 systemctl mask proc-sys-fs-binfmt_misc.automount sys-kernel-config.mount sys-kernel-debug.mount sys-kernel-tracing.mount kmod.service systemd-modules-load.service systemd-udevd.service 2>/dev/null
 exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
 "
@@ -190,7 +191,7 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
             (^container run -d
                 --name $name
                 --platform linux/amd64
-                --rosetta
+
                 --virtualization
                 --memory 4g
                 --dns-domain $dns_domain
@@ -205,7 +206,7 @@ exec /entrypoint.sh /sbin/init --log-target=console --log-level=info
             (^container run -d
                 --name $name
                 --platform linux/amd64
-                --rosetta
+
                 --virtualization
                 --memory 4g
                 --mount $"type=bind,source=($project_root)/data/($name)/dump,target=/var/lib/vz/dump"
@@ -239,7 +240,7 @@ def start_pbs [image: string, dns_domain: string] {
             (^container run -d
                 --name pbs
                 --platform linux/amd64
-                --rosetta
+
                 --virtualization
                 --memory 2g
                 --dns-domain $dns_domain
@@ -253,7 +254,7 @@ def start_pbs [image: string, dns_domain: string] {
             (^container run -d
                 --name pbs
                 --platform linux/amd64
-                --rosetta
+
                 --virtualization
                 --memory 2g
                 --mount "type=volume,source=pbs-lib,target=/var/lib/proxmox-backup"
