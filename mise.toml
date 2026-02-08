@@ -1,0 +1,147 @@
+# Proxmox Datacenter Manager Lab
+# Uses Apple Container on macOS 26+ (Tahoe)
+
+[env]
+_.file = ".env"
+PROJECT_ROOT = "{{ config_root }}"
+PDM_IMAGE = "ghcr.io/longqt-sea/proxmox-datacenter-manager"
+# PVE_IMAGE = "ghcr.io/longqt-sea/proxmox-ve"  # upstream (missing rrdtool)
+PVE_IMAGE = "proxmox-ve"  # local build with rrdtool fix
+PBS_IMAGE = "ayufan/proxmox-backup-server"
+
+# ============================================================================
+# Tasks - Apple Container (macOS 26+)
+# ============================================================================
+
+[tasks.build]
+description = "Build custom container images (PVE with rrdtool fix)"
+run = "container build --platform linux/amd64 --tag proxmox-ve images/pve"
+
+[tasks.setup]
+description = "Create data directories and start container system"
+run = "nu scripts/setup.nu"
+
+[tasks.start]
+description = "Start PDM + PVE nodes + PBS, set passwords, configure remotes"
+run = "nu scripts/start.nu"
+
+[tasks.stop]
+description = "Stop the Proxmox lab"
+run = "nu scripts/stop.nu"
+
+[tasks.restart]
+description = "Restart the Proxmox lab"
+depends = ["stop"]
+run = "nu scripts/start.nu"
+
+[tasks.status]
+description = "Show container and PDM status"
+run = "nu scripts/status.nu"
+
+[tasks.logs]
+description = "Show logs from all containers (-f to follow)"
+run = "nu scripts/logs.nu"
+
+[tasks."logs:pdm"]
+description = "Show PDM logs (-f to follow)"
+run = "nu scripts/logs.nu pdm"
+
+[tasks."logs:pve1"]
+description = "Show PVE-1 logs (-f to follow)"
+run = "nu scripts/logs.nu pve-1"
+
+[tasks."logs:pve2"]
+description = "Show PVE-2 logs (-f to follow)"
+run = "nu scripts/logs.nu pve-2"
+
+[tasks."logs:pve3"]
+description = "Show PVE-3 logs (-f to follow)"
+run = "nu scripts/logs.nu pve-3"
+
+[tasks."logs:pbs"]
+description = "Show PBS logs (-f to follow)"
+run = "nu scripts/logs.nu pbs"
+
+[tasks.passwd]
+description = "Set root passwords on running containers"
+run = "nu scripts/passwd.nu"
+
+[tasks."pve:init"]
+description = "Initialize PVE nodes (FQDN + cluster setup)"
+run = "nu scripts/pve-init.nu"
+
+[tasks.remotes]
+description = "Configure PVE/PBS nodes as remotes in PDM"
+run = "nu scripts/remotes.nu"
+
+[tasks."remotes:status"]
+description = "Show PDM remotes and their connection status"
+run = "nu scripts/remotes-status.nu"
+
+[tasks.backup]
+description = "Backup PDM config and data"
+run = "nu scripts/backup.nu"
+
+[tasks.shell]
+description = "Open shell in PDM container"
+run = "container exec -it pdm /bin/bash"
+
+[tasks."shell:pve1"]
+description = "Open shell in PVE-1 container"
+run = "container exec -it pve-1 /bin/bash"
+
+[tasks."shell:pve2"]
+description = "Open shell in PVE-2 container"
+run = "container exec -it pve-2 /bin/bash"
+
+[tasks."shell:pve3"]
+description = "Open shell in PVE-3 container"
+run = "container exec -it pve-3 /bin/bash"
+
+[tasks."shell:pbs"]
+description = "Open shell in PBS container"
+run = "container exec -it pbs /bin/bash"
+
+[tasks.inspect]
+description = "Inspect PDM storage paths"
+run = "nu scripts/inspect.nu"
+
+[tasks.urls]
+description = "Show access URLs and credentials"
+run = "nu scripts/urls.nu"
+
+[tasks.clean]
+description = "Stop and remove all containers"
+run = "nu scripts/clean.nu"
+
+[tasks."clean:data"]
+description = "Remove all persistent data (requires confirmation)"
+run = "nu scripts/clean-data.nu"
+
+[tasks."download:images"]
+description = "Download minimal test images (Tiny Core Linux ISO)"
+run = "nu scripts/download-images.nu"
+
+[tasks."test:lxc"]
+description = "Test LXC container creation on a PVE node"
+run = "nu scripts/test-lxc.nu"
+
+# ============================================================================
+# Ingress - Expose LXC services to macOS host
+# ============================================================================
+
+[tasks.ingress]
+description = "Create ingress LXC proxy on PVE nodes (opt-in)"
+run = "nu scripts/ingress.nu"
+
+[tasks.expose]
+description = "Expose an LXC port through the ingress proxy"
+run = "nu scripts/expose.nu"
+
+[tasks.unexpose]
+description = "Remove an exposed LXC port from the ingress proxy"
+run = "nu scripts/unexpose.nu"
+
+[tasks."expose:list"]
+description = "List exposed LXC services across PVE nodes"
+run = "nu scripts/expose-list.nu"
